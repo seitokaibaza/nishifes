@@ -1,0 +1,1372 @@
+
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>学校祭バザー 前売り券販売サイト</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#0066cc;
+  --bg:#eef6ff;
+  --card:#fff;
+  --muted:#6b7785;
+  --radius:12px;
+  --day1-bg:#fff4b8;
+  --day1-border:#e6b800;
+  --day2-bg:#ffd6e8;
+  --day2-border:#e85a9b;
+}
+*{box-sizing:border-box}
+body{font-family:'Nunito',sans-serif;margin:0;background:var(--bg);color:#042b4a}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:linear-gradient(90deg,var(--accent),#2a9df4);color:#fff;gap:12px}
+header h1{margin:0;font-size:1.2rem}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn{background:#fff;color:var(--accent);border:none;padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:700}
+.btn:hover{opacity:0.9}.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:white}.btn-danger{background:#ff4d4d;color:white}
+.container{max-width:1200px;margin:16px auto;padding:0 12px}
+.card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.product-card{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,0.08);border:2px solid transparent}
+.product-card.day1{background:var(--day1-bg);border-color:var(--day1-border)}
+.product-card.day2{background:var(--day2-bg);border-color:var(--day2-border)}
+.product-card img{width:100%;height:160px;object-fit:cover;display:block}
+.product-info{padding:10px}
+.input{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-top:8px;background:white}
+.hidden{display:none}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:999;padding:12px}
+.modal{background:#fff;padding:16px;border-radius:12px;width:92%;max-width:900px;max-height:85vh;overflow-y:auto}
+.small{font-size:0.9rem;color:#666}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700;font-size:0.85rem;margin-bottom:6px}
+.badge.day1{background:#ffe066;color:#5c4700}.badge.day2{background:#ff9ec7;color:#6b0638}
+.cart-toggle-btn{position:fixed;right:20px;bottom:20px;z-index:1001;border:none;background:#0066cc;color:white;padding:14px 18px;border-radius:999px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,0.2)}
+.cart-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;margin-left:4px;background:white;color:#0066cc;border-radius:999px;font-size:13px}
+.cart-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid #eee}
+.cart-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.checkout-summary{background:#f7fbff;border:1px solid #d9ebff;padding:12px;border-radius:12px;margin:12px 0}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.notice{background:#fffbe6;border:1px solid #ffe58f;padding:10px;border-radius:10px;margin:10px 0}
+@media(max-width:600px){
+  header{align-items:flex-start;flex-direction:column}
+  .header-right{width:100%;justify-content:flex-start}
+  .cart-row{grid-template-columns:1fr}
+  .cart-actions{justify-content:flex-start}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>学校祭バザー</h1>
+  <div class="header-right">
+    <div>
+      <div id="userLabel">未ログイン</div>
+      <div id="roleLabel" style="font-size:12px;opacity:0.8;">role: -</div>
+    </div>
+    <button class="btn" id="googleLoginBtn">Googleログイン</button>
+    <button class="btn hidden" id="modeSwitchBtn">モード切替</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2>店舗一覧</h2>
+    <div id="storesGrid" class="grid"></div>
+  </div>
+
+  <div id="sellerPanel" class="card hidden" style="margin-top:16px;">
+    <h2>販売者メニュー</h2>
+    <input id="storeName" class="input" placeholder="店舗名">
+    <input id="storeClass" class="input" placeholder="店舗クラス（例:3-1）">
+    <input id="storePass" class="input" type="password" placeholder="店舗パスワード">
+    <input id="storeLogoFile" type="file" class="input" accept="image/*">
+    <button id="createStoreBtn" class="btn btn-primary" style="margin-top:10px;">店舗を作成</button>
+    <div class="small" style="margin-top:8px;">※店舗ロゴは自動で圧縮されます。</div>
+  </div>
+
+
+  <div id="adminPanel" class="card hidden" style="margin-top:16px;">
+    <h2>管理者メニュー</h2>
+    <div class="notice">
+      <strong>現在の購入受付状態：</strong>
+      <span id="saleStatusLabel">確認中...</span><br>
+      <span class="small">管理者が「購入受付を開始」にするまで、利用者は購入を確定できません。</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="setSaleOpen(true)">購入受付を開始</button>
+      <button class="btn btn-danger" onclick="setSaleOpen(false)">購入受付を停止</button>
+      <button class="btn" onclick="refreshSaleStatus()">状態を更新</button>
+    </div>
+  </div>
+</div>
+
+<button id="toggleCartBtn" class="cart-toggle-btn">🛒 <span id="cartCount" class="cart-count">0</span></button>
+<div id="modal" class="modal-backdrop"><div id="modalContent" class="modal"></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDYrOOxN-uer_6B67Dlj2NNIohJHUh4fvQ",
+  authDomain: "west-schoolfesta-app.firebaseapp.com",
+  projectId: "west-schoolfesta-app",
+  storageBucket: "west-schoolfesta-app.firebasestorage.app",
+  messagingSenderId: "34308926538",
+  appId: "1:34308926538:web:c0026cf89837632e59cab3",
+  measurementId: "G-Y5B03B0DQD"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
+
+/*
+  Apps ScriptのWebアプリURL。
+  GASを新規デプロイしてURLが変わった場合はここだけ差し替える。
+*/
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwkEV_d9SupsbVRvubtM-KJMQdhAxDBxFDVv5u-dgJ_IQ4h5EvgVnDFLI6jMmsdRA1c1A/exec";
+
+
+let currentUser = null;
+
+/*
+  currentRole は Firestore に保存されている「本当の権限」です。
+  これは運営が Firebase Console で付与します。
+  HTMLから自分で seller / admin に変更できるようにはしません。
+
+  activeRole は画面上の「操作モード」です。
+  seller は purchaser / seller、admin は purchaser / seller / admin に切り替えられます。
+  これにより、販売者・管理者も購入者モードで商品を購入できます。
+*/
+let currentRole = null;
+let activeRole = "purchaser";
+
+/*
+  currentProfile は users/{uid} に保存する本人情報です。
+  購入時に毎回入力させず、初回ログイン時に登録した情報を注文データへ入れます。
+*/
+let currentProfile = null;
+
+let currentStoreId = null;
+let lastOpenStoreId = null;
+let cart = [];
+let isCheckingOut = false;
+let productAuthPassed = false;
+let saleStatus = {
+  isSaleOpen:false,
+  message:"現在、購入受付は開始していません。"
+};
+
+function getRoleLabel(role){
+  if(role === "admin") return "管理者";
+  if(role === "seller") return "販売者";
+  if(role === "purchaser") return "購入者";
+  return "-";
+}
+
+function canUseMode(mode){
+  if(currentRole === "admin"){
+    return ["purchaser", "seller", "admin"].includes(mode);
+  }
+
+  if(currentRole === "seller"){
+    return ["purchaser", "seller"].includes(mode);
+  }
+
+  return mode === "purchaser";
+}
+
+function setActiveRole(mode){
+  if(!canUseMode(mode)){
+    alert("このモードは選択できません");
+    return;
+  }
+
+  activeRole = mode;
+  localStorage.setItem("bazaarActiveRole", activeRole);
+  updateRoleUI();
+  loadStores();
+}
+
+function restoreActiveRole(){
+  const saved = localStorage.getItem("bazaarActiveRole");
+
+  if(saved && canUseMode(saved)){
+    activeRole = saved;
+  }else{
+    activeRole = "purchaser";
+  }
+}
+
+function hasSellerPermission(){
+  return currentRole === "seller" || currentRole === "admin";
+}
+
+function hasAdminPermission(){
+  return currentRole === "admin";
+}
+
+function isSellerMode(){
+  return activeRole === "seller" && hasSellerPermission();
+}
+
+function isAdminMode(){
+  return activeRole === "admin" && hasAdminPermission();
+}
+
+function updateRoleUI(){
+  document.getElementById("roleLabel").innerText =
+    "権限: " + getRoleLabel(currentRole) +
+    " / 操作: " + getRoleLabel(activeRole);
+
+  const sellerPanel = document.getElementById("sellerPanel");
+
+  if(isSellerMode() || isAdminMode()){
+    sellerPanel.classList.remove("hidden");
+  }else{
+    sellerPanel.classList.add("hidden");
+  }
+
+  const adminPanel = document.getElementById("adminPanel");
+
+  if(adminPanel){
+    if(isAdminMode()){
+      adminPanel.classList.remove("hidden");
+      refreshSaleStatus();
+    }else{
+      adminPanel.classList.add("hidden");
+    }
+  }
+
+  const modeSwitchBtn = document.getElementById("modeSwitchBtn");
+
+  if(modeSwitchBtn){
+    if(hasSellerPermission() || hasAdminPermission()){
+      modeSwitchBtn.classList.remove("hidden");
+    }else{
+      modeSwitchBtn.classList.add("hidden");
+    }
+  }
+}
+
+function escapeHTML(value){
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function getSaleDayLabel(saleDay){
+  if(saleDay === "day1") return "1日目";
+  if(saleDay === "day2") return "2日目";
+  return "未設定";
+}
+
+function getSaleDayClass(saleDay){
+  if(saleDay === "day1") return "day1";
+  if(saleDay === "day2") return "day2";
+  return "";
+}
+
+function showModal(html){
+  document.getElementById("modalContent").innerHTML = html;
+  document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal(){
+  document.getElementById("modal").style.display = "none";
+}
+
+document.getElementById("modal").onclick = (e)=>{
+  if(e.target.id === "modal") closeModal();
+};
+
+/*
+  画像圧縮用の共通関数。
+  スマホ写真をそのまま保存すると重いので、canvasで縮小してJPEG化する。
+  店舗ロゴ：500px / 0.65
+  商品画像：300px / 0.55
+*/
+async function compressImage(file, maxWidth = 300, quality = 0.55){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+
+    img.onload = ()=>{
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const scale = Math.min(1, maxWidth / img.width);
+
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+
+    img.onerror = ()=>reject(new Error("画像の読み込みに失敗しました"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function updateCartButton(){
+  document.getElementById("cartCount").innerText = cart.length;
+}
+
+function getGroupedCart(){
+  const grouped = {};
+
+  cart.forEach(item=>{
+    const key = item.storeId + "_" + item.id;
+
+    if(!grouped[key]){
+      grouped[key] = {
+        key,
+        storeId:item.storeId,
+        productId:item.id,
+        storeName:item.storeName || "",
+        storeClass:item.storeClass || "",
+        name:item.name,
+        price:Number(item.price || 0),
+        saleDay:item.saleDay || "",
+        saleDayLabel:item.saleDayLabel || getSaleDayLabel(item.saleDay),
+        qty:0,
+        subtotal:0,
+        image:item.image || ""
+      };
+    }
+
+    grouped[key].qty++;
+    grouped[key].subtotal += Number(item.price || 0);
+  });
+
+  return Object.values(grouped);
+}
+
+function getCartTotal(){
+  return cart.reduce((sum,item)=>sum + Number(item.price || 0), 0);
+}
+
+
+function buildStudentCode(grade, classNo, seatNo){
+  return String(grade) + String(classNo) + String(seatNo).padStart(2, "0");
+}
+
+function isProfileComplete(data){
+  return !!(
+    data &&
+    data.profileCompleted === true &&
+    data.grade &&
+    data.classNo &&
+    data.seatNo &&
+    data.studentCode &&
+    data.name
+  );
+}
+
+function extractProfile(data){
+  return {
+    grade:Number(data.grade),
+    classNo:Number(data.classNo),
+    seatNo:Number(data.seatNo),
+    studentCode:String(data.studentCode),
+    name:String(data.name || "")
+  };
+}
+
+function showProfileRegistrationModal(existing = {}){
+  const grade = existing.grade || "";
+  const classNo = existing.classNo || "";
+  const seatNo = existing.seatNo || "";
+  const name = existing.name || "";
+
+  showModal(`
+    <h2>プロフィール登録</h2>
+    <div class="notice">
+      食券配布・支払い確認・購入確認メールのため、最初に年組番号と名前を登録してください。<br>
+      4桁番号は自動で作ります。例：2年1組10番 → 2110
+    </div>
+
+    <div class="form-grid">
+      <select id="profileGrade" class="input">
+        <option value="">学年</option>
+        <option value="1" ${String(grade) === "1" ? "selected" : ""}>1年</option>
+        <option value="2" ${String(grade) === "2" ? "selected" : ""}>2年</option>
+        <option value="3" ${String(grade) === "3" ? "selected" : ""}>3年</option>
+      </select>
+      <input id="profileClass" class="input" type="number" min="1" max="9" placeholder="組" value="${escapeHTML(classNo)}">
+      <input id="profileSeatNo" class="input" type="number" min="1" max="99" placeholder="出席番号" value="${escapeHTML(seatNo)}">
+    </div>
+
+    <input id="profileName" class="input" placeholder="氏名" value="${escapeHTML(name)}">
+
+    <button class="btn btn-primary" style="margin-top:12px" onclick="saveProfile()">
+      登録する
+    </button>
+  `);
+}
+
+async function saveProfile(){
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
+  const grade = Number(document.getElementById("profileGrade").value);
+  const classNo = Number(document.getElementById("profileClass").value);
+  const seatNo = Number(document.getElementById("profileSeatNo").value);
+  const name = document.getElementById("profileName").value.trim();
+
+  if(!grade || !classNo || !seatNo || !name){
+    alert("学年・組・出席番号・氏名をすべて入力してください");
+    return;
+  }
+
+  if(classNo < 1 || classNo > 9){
+    alert("組は1〜9の範囲で入力してください");
+    return;
+  }
+
+  if(seatNo < 1 || seatNo > 99){
+    alert("出席番号は1〜99の範囲で入力してください");
+    return;
+  }
+
+  const studentCode = buildStudentCode(grade, classNo, seatNo);
+
+  const profileData = {
+    email: currentUser.email,
+    grade,
+    classNo,
+    seatNo,
+    studentCode,
+    name,
+    profileCompleted: true,
+    updatedAt: new Date()
+  };
+
+  await db.collection("users").doc(currentUser.uid).update(profileData);
+
+  currentProfile = {
+    grade,
+    classNo,
+    seatNo,
+    studentCode,
+    name
+  };
+
+  closeModal();
+  alert("プロフィールを登録しました。4桁番号は " + studentCode + " です。");
+}
+
+async function setupLoggedInUser(user){
+  if(!user.email || !user.email.endsWith("@west.ed.jp")){
+    alert("西高アカウントのみ利用できます");
+    await auth.signOut();
+    return;
+  }
+
+  currentUser = user;
+  document.getElementById("userLabel").innerText = user.email;
+
+  const userRef = db.collection("users").doc(user.uid);
+  const snap = await userRef.get();
+
+  let userData;
+
+  if(!snap.exists){
+    /*
+      初回ログイン時は全員 purchaser として作成します。
+      年組番号・氏名はこの直後のプロフィール登録画面で保存します。
+      seller / admin の本当の権限は、運営が Firebase Console で後から付与します。
+    */
+    userData = {
+      email:user.email,
+      role:"purchaser",
+      profileCompleted:false,
+      createdAt:new Date(),
+      updatedAt:new Date()
+    };
+
+    await userRef.set(userData);
+    currentRole = "purchaser";
+    currentProfile = null;
+
+  }else{
+    userData = snap.data();
+    currentRole = userData.role || "purchaser";
+
+    if(isProfileComplete(userData)){
+      currentProfile = extractProfile(userData);
+    }else{
+      currentProfile = null;
+    }
+  }
+
+  restoreActiveRole();
+  updateRoleUI();
+  loadStores();
+
+  if(!currentProfile){
+    showProfileRegistrationModal(userData);
+  }
+}
+
+document.getElementById("googleLoginBtn").onclick = async ()=>{
+  try{
+    const result = await auth.signInWithPopup(provider);
+    await setupLoggedInUser(result.user);
+  }catch(e){
+    console.error(e);
+    alert(e.message);
+  }
+};
+
+/* ================= Sale Open / Close Control =================
+  管理者が購入受付を開始するまで、購入を確定できないようにします。
+  状態は Firestore の settings/sale に保存します。
+
+  settings/sale の例：
+  {
+    isSaleOpen: false,
+    message: "現在、購入受付は開始していません。"
+  }
+*/
+function saleDocRef(){
+  return db.collection("settings").doc("sale");
+}
+
+function updateSaleStatusLabel(){
+  const label = document.getElementById("saleStatusLabel");
+  if(!label) return;
+
+  if(saleStatus.isSaleOpen){
+    label.innerText = "受付中";
+    label.style.color = "#0a7a24";
+    label.style.fontWeight = "700";
+  }else{
+    label.innerText = "停止中";
+    label.style.color = "#cc0000";
+    label.style.fontWeight = "700";
+  }
+}
+
+async function refreshSaleStatus(){
+  try{
+    const snap = await saleDocRef().get();
+
+    if(snap.exists){
+      saleStatus = {
+        isSaleOpen: snap.data().isSaleOpen === true,
+        message: snap.data().message || "現在、購入受付は開始していません。"
+      };
+    }else{
+      saleStatus = {
+        isSaleOpen:false,
+        message:"現在、購入受付は開始していません。"
+      };
+    }
+
+    updateSaleStatusLabel();
+
+  }catch(e){
+    console.error(e);
+    saleStatus = {
+      isSaleOpen:false,
+      message:"販売状態を確認できませんでした。少し時間をおいて再読み込みしてください。"
+    };
+    updateSaleStatusLabel();
+  }
+}
+
+async function setSaleOpen(open){
+  if(!isAdminMode()){
+    alert("管理者モードのみ操作できます");
+    return;
+  }
+
+  const ok = confirm(open ? "購入受付を開始しますか？" : "購入受付を停止しますか？");
+  if(!ok) return;
+
+  try{
+    await saleDocRef().set({
+      isSaleOpen: open,
+      message: open ? "現在、購入受付中です。" : "現在、購入受付は開始していません。",
+      updatedBy: currentUser ? currentUser.email : "",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+
+    await refreshSaleStatus();
+    alert(open ? "購入受付を開始しました" : "購入受付を停止しました");
+
+  }catch(e){
+    console.error(e);
+    alert("販売状態の変更に失敗しました: " + e.message);
+  }
+}
+
+async function canCheckoutNow(){
+  const snap = await saleDocRef().get();
+
+  if(!snap.exists || snap.data().isSaleOpen !== true){
+    const message = snap.exists && snap.data().message
+      ? snap.data().message
+      : "現在、購入受付は開始していません。";
+
+    alert(message);
+    return false;
+  }
+
+  return true;
+}
+
+auth.onAuthStateChanged(async user=>{
+  try{
+    if(user){
+      await setupLoggedInUser(user);
+    }else{
+      currentUser = null;
+      currentRole = null;
+      activeRole = "purchaser";
+      currentProfile = null;
+
+      document.getElementById("userLabel").innerText = "未ログイン";
+      document.getElementById("roleLabel").innerText = "role: -";
+      document.getElementById("sellerPanel").classList.add("hidden");
+      document.getElementById("adminPanel").classList.add("hidden");
+      document.getElementById("modeSwitchBtn").classList.add("hidden");
+
+      loadStores();
+    }
+  }catch(e){
+    console.error(e);
+    alert(e.message);
+  }
+});
+
+document.getElementById("modeSwitchBtn").onclick = ()=>{
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
+  const options = [];
+
+  if(currentRole === "admin"){
+    options.push("purchaser", "seller", "admin");
+  }else if(currentRole === "seller"){
+    options.push("purchaser", "seller");
+  }else{
+    options.push("purchaser");
+  }
+
+  showModal(`
+    <h2>操作モード切替</h2>
+    <div class="notice">
+      本当の権限は変更せず、画面上の操作モードだけを切り替えます。<br>
+      購入したいときは「購入者モード」にしてください。
+    </div>
+
+    <select id="activeRoleSelect" class="input">
+      ${options.map(mode=>`
+        <option value="${mode}" ${mode === activeRole ? "selected" : ""}>
+          ${getRoleLabel(mode)}モード
+        </option>
+      `).join("")}
+    </select>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <button class="btn btn-primary" onclick="setActiveRole(document.getElementById('activeRoleSelect').value);closeModal();">
+        切り替える
+      </button>
+      <button class="btn" onclick="closeModal()">閉じる</button>
+    </div>
+  `);
+};
+
+document.getElementById("createStoreBtn").onclick = async ()=>{
+  if(!(isSellerMode() || isAdminMode())){
+    alert("販売者のみ可能です");
+    return;
+  }
+
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
+  const name = document.getElementById("storeName").value.trim();
+  const className = document.getElementById("storeClass").value.trim();
+  const pass = document.getElementById("storePass").value.trim();
+  const file = document.getElementById("storeLogoFile").files[0];
+
+  if(!name || !className || !pass){
+    alert("店舗名・クラス・パスワードは必ず入力してください");
+    return;
+  }
+
+  let logo = "";
+
+  if(file){
+    logo = await compressImage(file, 500, 0.65);
+  }
+
+  const storeRef = await db.collection("stores").add({
+    name,
+    className,
+    pass,
+    logo,
+    ownerId:currentUser.uid,
+    createdAt:new Date()
+  });
+
+  currentStoreId = storeRef.id;
+
+  alert("店舗作成完了");
+  loadStores();
+};
+
+async function loadStores(){
+  const storesGrid = document.getElementById("storesGrid");
+  storesGrid.innerHTML = "";
+
+  const snap = await db.collection("stores").get();
+
+  snap.forEach(doc=>{
+    const store = doc.data();
+    const card = document.createElement("div");
+    card.className = "product-card";
+
+    const logoSrc = store.logo || "https://via.placeholder.com/300";
+
+    card.innerHTML = `
+      <img src="${logoSrc}" alt="${escapeHTML(store.name)}" style="height:180px;">
+      <div class="product-info">
+        <h3>${escapeHTML(store.name)}</h3>
+        <div class="small">${escapeHTML(store.className || "")}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          ${isAdminMode() ? `<button class="btn btn-danger" data-action="delete-store">店舗削除</button>` : ""}
+          <button class="btn btn-primary" data-action="open-store">店舗を見る</button>
+          <button class="btn" data-action="image">画像を拡大</button>
+          ${
+            isSellerMode() || isAdminMode()
+            ? `<button class="btn" data-action="add-product">商品追加</button>`
+            : ""
+          }
+        </div>
+      </div>
+    `;
+
+    card.onclick = ()=>openStore(doc.id);
+
+    const openBtn = card.querySelector('[data-action="open-store"]');
+    if(openBtn){
+      openBtn.onclick = (e)=>{
+        e.stopPropagation();
+        openStore(doc.id);
+      };
+    }
+
+    const imgBtn = card.querySelector('[data-action="image"]');
+    if(imgBtn){
+      imgBtn.onclick = (e)=>{
+        e.stopPropagation();
+        showImageModal(logoSrc);
+      };
+    }
+
+    const addBtn = card.querySelector('[data-action="add-product"]');
+    if(addBtn){
+      addBtn.onclick = (e)=>{
+        e.stopPropagation();
+        openAddProduct(doc.id);
+      };
+    }
+
+    const delBtn = card.querySelector('[data-action="delete-store"]');
+    if(delBtn){
+      delBtn.onclick = (e)=>{
+        e.stopPropagation();
+        deleteStore(doc.id);
+      };
+    }
+
+    storesGrid.appendChild(card);
+  });
+}
+
+async function deleteStore(storeId){
+  if(!isAdminMode()){
+    alert("管理者のみ削除できます");
+    return;
+  }
+
+  const ok = confirm("この店舗を削除しますか？");
+  if(!ok) return;
+
+  try{
+    await db.collection("stores").doc(storeId).delete();
+    alert("店舗を削除しました");
+    loadStores();
+  }catch(e){
+    console.error(e);
+    alert("削除失敗");
+  }
+}
+
+function showImageModal(url){
+  showModal(`
+    <div style="text-align:center">
+      <img src="${url || "https://via.placeholder.com/300"}" style="width:100%;max-height:80vh;object-fit:contain;border-radius:12px;">
+      <button class="btn btn-primary" style="margin-top:12px" onclick="closeModal()">閉じる</button>
+    </div>
+  `);
+}
+
+async function openAddProduct(storeId){
+  if(!(isSellerMode() || isAdminMode())){
+    alert("販売者モードまたは管理者モードでのみ商品を追加できます");
+    return;
+  }
+
+  const pass = prompt("店舗パスワード");
+  const storeSnap = await db.collection("stores").doc(storeId).get();
+
+  if(!storeSnap.exists){
+    alert("店舗が見つかりません");
+    return;
+  }
+
+  const store = storeSnap.data();
+
+  if(pass !== store.pass){
+    alert("パスワードが違います");
+    return;
+  }
+
+  productAuthPassed = true;
+  currentStoreId = storeId;
+
+  showModal(`
+    <h2>商品追加</h2>
+    <input id="productName" class="input" placeholder="商品名">
+    <input id="productPrice" class="input" type="number" min="1" placeholder="価格">
+    <input id="productStock" class="input" type="number" min="0" placeholder="在庫">
+
+    <!-- 1日目・2日目を必須で選択する。未選択なら追加できない。 -->
+    <select id="productSaleDay" class="input">
+      <option value="">販売日を選択してください</option>
+      <option value="day1">1日目</option>
+      <option value="day2">2日目</option>
+    </select>
+
+    <input id="productImageFile" type="file" class="input" accept="image/*">
+
+    <button class="btn btn-primary" style="margin-top:10px" onclick="submitProduct()">商品追加</button>
+    <button class="btn" style="margin-top:10px" onclick="closeModal()">閉じる</button>
+  `);
+}
+
+async function submitProduct(){
+  if(!productAuthPassed){
+    alert("認証されていません");
+    return;
+  }
+
+  const name = document.getElementById("productName").value.trim();
+  const price = Number(document.getElementById("productPrice").value);
+  const stock = Number(document.getElementById("productStock").value);
+  const saleDay = document.getElementById("productSaleDay").value;
+  const file = document.getElementById("productImageFile").files[0];
+
+  if(!name || price <= 0 || stock < 0){
+    alert("商品名・価格・在庫を正しく入力してください");
+    return;
+  }
+
+  if(!saleDay){
+    alert("1日目か2日目を選択してください");
+    return;
+  }
+
+  let image = "";
+
+  if(file){
+    image = await compressImage(file, 300, 0.55);
+  }
+
+  await db.collection("stores")
+    .doc(currentStoreId)
+    .collection("products")
+    .add({
+      name,
+      price,
+      stock,
+      image,
+      saleDay,
+      saleDayLabel:getSaleDayLabel(saleDay),
+      createdAt:new Date()
+    });
+
+  alert("商品追加完了");
+  productAuthPassed = false;
+  closeModal();
+  loadStores();
+}
+
+async function openStore(storeId){
+  lastOpenStoreId = storeId;
+
+  const modal = document.getElementById("modal");
+  const modalContent = document.getElementById("modalContent");
+
+  modal.style.display = "flex";
+
+  modalContent.innerHTML = `
+    <h2>商品一覧</h2>
+    <div class="notice">1日目の商品は黄色、2日目の商品はピンクで表示されます。</div>
+    <div id="productsArea" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;"></div>
+    <button class="btn" style="margin-top:12px" onclick="closeModal()">閉じる</button>
+  `;
+
+  const area = document.getElementById("productsArea");
+  const storeSnap = await db.collection("stores").doc(storeId).get();
+
+  if(!storeSnap.exists){
+    area.innerHTML = "<p>店舗が見つかりません。</p>";
+    return;
+  }
+
+  const store = storeSnap.data();
+
+  const snap = await db.collection("stores")
+    .doc(storeId)
+    .collection("products")
+    .get();
+
+  if(snap.empty){
+    area.innerHTML = "<p>商品はまだ登録されていません。</p>";
+    return;
+  }
+
+  snap.forEach(doc=>{
+    const p = doc.data();
+
+    const saleDay = p.saleDay || "";
+    const saleDayClass = getSaleDayClass(saleDay);
+    const saleDayLabel = p.saleDayLabel || getSaleDayLabel(saleDay);
+
+    const div = document.createElement("div");
+    div.className = `product-card ${saleDayClass}`;
+    div.style.marginTop = "10px";
+
+    div.innerHTML = `
+      <img src="${p.image || "https://via.placeholder.com/300"}" alt="${escapeHTML(p.name)}">
+      <div class="product-info">
+        <span class="badge ${saleDayClass}">${escapeHTML(saleDayLabel)}</span>
+        <h3>${escapeHTML(p.name)}</h3>
+        <div>¥${Number(p.price || 0)}</div>
+        <div>在庫:${Number(p.stock || 0)}</div>
+        <button class="btn btn-primary" style="margin-top:8px;">カートに追加</button>
+      </div>
+    `;
+
+    div.querySelector("button").onclick = ()=>{
+      addToCart({
+        id:doc.id,
+        storeId,
+        storeName:store.name || "",
+        storeClass:store.className || "",
+        name:p.name,
+        price:Number(p.price || 0),
+        stock:Number(p.stock || 0),
+        image:p.image || "",
+        saleDay:p.saleDay || "",
+        saleDayLabel:p.saleDayLabel || getSaleDayLabel(p.saleDay)
+      });
+    };
+
+    area.appendChild(div);
+  });
+}
+
+async function addToCart(product){
+  const ref = db.collection("stores")
+    .doc(product.storeId)
+    .collection("products")
+    .doc(product.id);
+
+  const snap = await ref.get();
+
+  if(!snap.exists){
+    alert("商品が見つかりません");
+    return;
+  }
+
+  const latest = snap.data();
+  const latestStock = Number(latest.stock || 0);
+
+  const sameCount = cart.filter(p=>p.id === product.id && p.storeId === product.storeId).length;
+
+  if(sameCount >= latestStock){
+    alert("在庫不足です");
+    return;
+  }
+
+  cart.push({
+    ...product,
+    price:Number(product.price || 0),
+    saleDay:product.saleDay || latest.saleDay || "",
+    saleDayLabel:product.saleDayLabel || latest.saleDayLabel || getSaleDayLabel(latest.saleDay)
+  });
+
+  updateCartButton();
+}
+
+
+function openCartPage(){
+  const grouped = getGroupedCart();
+  const total = getCartTotal();
+
+  if(cart.length === 0){
+    showModal(`
+      <h2>カート</h2>
+      <p>カートは空です。</p>
+      <button class="btn btn-primary" onclick="returnFromCart()">商品ページに戻る</button>
+    `);
+    return;
+  }
+
+  const rows = grouped.map(item=>{
+    const dayClass = getSaleDayClass(item.saleDay);
+    return `
+      <div class="cart-row">
+        <div>
+          <span class="badge ${dayClass}">${escapeHTML(item.saleDayLabel)}</span>
+          <strong>${escapeHTML(item.name)}</strong>
+          <div class="small">${escapeHTML(item.storeClass)} ${escapeHTML(item.storeName)}</div>
+          <div>¥${item.price} × ${item.qty} = ¥${item.subtotal}</div>
+        </div>
+        <div class="cart-actions">
+          <button class="btn" onclick="decreaseCartItem('${item.storeId}','${item.productId}')">－</button>
+          <strong>${item.qty}</strong>
+          <button class="btn" onclick="increaseCartItem('${item.storeId}','${item.productId}')">＋</button>
+          <button class="btn btn-danger" onclick="removeCartGroup('${item.storeId}','${item.productId}')">削除</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  showModal(`
+    <h2>カート</h2>
+    <div class="notice">ここで、自分が何を何個買う予定か確認できます。</div>
+    ${rows}
+    <div style="font-size:1.2rem;font-weight:bold;margin-top:12px;">合計：¥${total}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+      <button class="btn" onclick="returnFromCart()">商品ページに戻る</button>
+      <button class="btn btn-primary" onclick="openCheckoutConfirm()">購入へ進む</button>
+    </div>
+  `);
+}
+
+async function increaseCartItem(storeId, productId){
+  const baseItem = cart.find(item=>item.storeId === storeId && item.id === productId);
+  if(!baseItem) return;
+  await addToCart(baseItem);
+  openCartPage();
+}
+
+function decreaseCartItem(storeId, productId){
+  const index = cart.findIndex(item=>item.storeId === storeId && item.id === productId);
+  if(index >= 0) cart.splice(index, 1);
+  updateCartButton();
+  openCartPage();
+}
+
+function removeCartGroup(storeId, productId){
+  cart = cart.filter(item=>!(item.storeId === storeId && item.id === productId));
+  updateCartButton();
+  openCartPage();
+}
+
+function returnFromCart(){
+  if(lastOpenStoreId) openStore(lastOpenStoreId);
+  else closeModal();
+}
+
+document.getElementById("toggleCartBtn").onclick = ()=>openCartPage();
+
+function openCheckoutConfirm(){
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
+  if(!currentProfile){
+    alert("先にプロフィール登録をしてください");
+    showProfileRegistrationModal({});
+    return;
+  }
+
+  if(cart.length === 0){
+    alert("カートが空です");
+    return;
+  }
+
+  const grouped = getGroupedCart();
+  const total = getCartTotal();
+
+  const rows = grouped.map(item=>{
+    const dayClass = getSaleDayClass(item.saleDay);
+    return `
+      <div style="margin:8px 0;">
+        <span class="badge ${dayClass}">${escapeHTML(item.saleDayLabel)}</span>
+        ${escapeHTML(item.storeClass)} ${escapeHTML(item.storeName)} / ${escapeHTML(item.name)} × ${item.qty}
+        <br>
+        <span class="small">¥${item.price} × ${item.qty} = ¥${item.subtotal}</span>
+      </div>
+    `;
+  }).join("");
+
+  showModal(`
+    <h2>購入確認</h2>
+    <div class="notice">
+      管理者が購入受付を開始するまで、購入は確定できません。
+    </div>
+    <div class="checkout-summary">
+      ${rows}
+      <hr>
+      <strong>合計：¥${total}</strong>
+    </div>
+
+    <div class="notice">
+      購入者：${currentProfile.grade}年${currentProfile.classNo}組${currentProfile.seatNo}番 ${escapeHTML(currentProfile.name)}<br>
+      4桁番号：${escapeHTML(currentProfile.studentCode)}<br>
+      メール：${escapeHTML(currentUser.email)}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
+      <button class="btn" onclick="openCartPage()">カートに戻る</button>
+      <button class="btn" onclick="showProfileRegistrationModal(currentProfile)">プロフィールを修正</button>
+      <button id="confirmCheckoutBtn" class="btn btn-primary" onclick="performCheckout()">購入を確定する</button>
+    </div>
+  `);
+}
+
+function getBuyerInfoFromProfile(){
+  if(!currentProfile){
+    throw new Error("プロフィールが登録されていません");
+  }
+
+  return {
+    grade:Number(currentProfile.grade),
+    classNum:Number(currentProfile.classNo),
+    number:Number(currentProfile.seatNo),
+    code:String(currentProfile.studentCode),
+    name:String(currentProfile.name || "")
+  };
+}
+
+async function performCheckout(){
+  if(isCheckingOut) return;
+
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
+  if(cart.length === 0){
+    alert("カートが空です");
+    return;
+  }
+
+  let buyerInfo;
+
+  try{
+    buyerInfo = getBuyerInfoFromProfile();
+  }catch(e){
+    alert(e.message);
+    return;
+  }
+
+  const ok = confirm("購入を確定しますか？");
+  if(!ok) return;
+
+  const saleOk = await canCheckoutNow();
+  if(!saleOk) return;
+
+  const btn = document.getElementById("confirmCheckoutBtn");
+
+  isCheckingOut = true;
+  btn.disabled = true;
+  btn.innerText = "購入中...";
+
+  const grouped = getGroupedCart();
+  const total = getCartTotal();
+
+  const orderRef = db.collection("orders").doc();
+  const orderId = orderRef.id;
+
+  const orderItems = grouped.map(item=>({
+    storeId:item.storeId,
+    productId:item.productId,
+    storeClass:item.storeClass,
+    storeName:item.storeName,
+    saleDay:item.saleDay,
+    saleDayLabel:item.saleDayLabel,
+    name:item.name,
+    price:item.price,
+    qty:item.qty,
+    subtotal:item.subtotal
+  }));
+
+  const orderData = {
+    orderId,
+    buyer:currentUser.email,
+    buyerEmail:currentUser.email,
+    buyerUid:currentUser.uid,
+    buyerGrade:buyerInfo.grade,
+    buyerClass:buyerInfo.classNum,
+    buyerNumber:buyerInfo.number,
+    buyerCode:buyerInfo.code,
+    buyerName:buyerInfo.name,
+    items:orderItems,
+    qty:cart.length,
+    total
+  };
+
+  try{
+    /*
+      同時購入対策：
+      購入確定の瞬間に最新在庫を読み、在庫が足りる場合だけ在庫を減らす。
+    */
+    await db.runTransaction(async(transaction)=>{
+      // Firestoreのtransactionでは、すべての読み取りを先に行い、
+      // その後に書き込みを行う必要があります。
+      // そのため、販売状態と商品在庫をすべて読み取ってから、在庫更新と注文保存を行います。
+
+      // 1. 購入確定の直前にも、購入受付が開始されているか確認する。
+      const saleSnap = await transaction.get(saleDocRef());
+      if(!saleSnap.exists || saleSnap.data().isSaleOpen !== true){
+        throw new Error("現在、購入受付は開始していません。");
+      }
+
+      // 2. 先に、購入対象商品の参照を作る。
+      const productChecks = orderItems.map(item=>{
+        const ref = db.collection("stores")
+          .doc(item.storeId)
+          .collection("products")
+          .doc(item.productId);
+
+        return {
+          item:item,
+          ref:ref
+        };
+      });
+
+      // 3. ここで、すべての商品在庫を先に読み取る。
+      for(const check of productChecks){
+        check.snap = await transaction.get(check.ref);
+      }
+
+      // 4. 読み取りがすべて終わってから、在庫が足りるか確認する。
+      for(const check of productChecks){
+        const item = check.item;
+        const snap = check.snap;
+
+        if(!snap.exists){
+          throw new Error(item.name + " が見つかりません");
+        }
+
+        const stock = Number(snap.data().stock || 0);
+
+        if(stock < item.qty){
+          throw new Error(item.name + " の在庫が足りません");
+        }
+      }
+
+      // 5. すべての読み取り・確認が終わってから、在庫を減らす。
+      for(const check of productChecks){
+        transaction.update(check.ref,{
+          stock: firebase.firestore.FieldValue.increment(-check.item.qty)
+        });
+      }
+
+      /*
+        6. 注文記録をFirestoreにも保存する。
+        GASやメール送信が失敗しても、注文そのものは残る。
+      */
+      transaction.set(orderRef,{
+        ...orderData,
+        gasStatus:"pending",
+        mailStatus:"pending",
+        paymentStatus:"unpaid",
+        saleChecked:true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    try{
+      const controller = new AbortController();
+
+      // GASが混雑している場合に購入画面を長時間止めないため、短めにタイムアウトします。
+      // 注文自体はすでにFirestoreに保存済みなので、ここで失敗しても購入は取り消しません。
+      const timer = setTimeout(()=>{
+        controller.abort();
+      }, 6000);
+
+      const res = await fetch(GAS_URL,{
+        method:"POST",
+        body:JSON.stringify(orderData),
+        signal:controller.signal
+      });
+
+      clearTimeout(timer);
+
+      const result = await res.json().catch(()=>({success:true, queued:true}));
+
+      await orderRef.update({
+        gasStatus: result.success ? "queued" : "queue_failed",
+        mailStatus: result.success ? "pending" : "queue_failed",
+        gasUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+    }catch(gasError){
+      console.error(gasError);
+
+      await orderRef.update({
+        gasStatus:"queue_failed",
+        mailStatus:"pending",
+        gasError:"GASキュー登録失敗: " + gasError.message,
+        gasUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    cart = [];
+    updateCartButton();
+    loadStores();
+
+    alert("購入が完了しました。確認メールは順次送信されます。混雑時は少し時間がかかる場合があります。");
+
+    closeModal();
+
+  }catch(e){
+    console.error(e);
+    alert(e.message || "購入失敗");
+
+  }finally{
+    isCheckingOut = false;
+    btn.disabled = false;
+    btn.innerText = "購入を確定する";
+  }
+}
+</script>
+</body>
+</html>
