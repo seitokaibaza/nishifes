@@ -65,7 +65,7 @@ header h1{margin:0;font-size:1.2rem}
       <div id="roleLabel" style="font-size:12px;opacity:0.8;">role: -</div>
     </div>
     <button class="btn" id="googleLoginBtn">Googleログイン</button>
-    <button class="btn hidden" id="modeSwitchBtn">モード切替</button>
+    <button class="btn hidden mode-switch-fixed" id="modeSwitchBtn">モード切替</button>
   </div>
 </header>
 
@@ -124,11 +124,20 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const provider = new firebase.auth.GoogleAuthProvider();
 
+/* ================= Auth Persistence =================
+   スマホではログイン状態が一時的に切れたように見えることがあるため、
+   ログイン状態をブラウザ内に保持する設定にします。
+*/
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+.catch(e=>{
+  console.error("ログイン保持設定に失敗", e);
+});
+
 /*
   Apps ScriptのWebアプリURL。
   GASを新規デプロイしてURLが変わった場合はここだけ差し替える。
 */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyw403bPxOHAA8eFOGLplbSnae4jWvl3hLlRtRO8Nin0Mj92mGwlkAmJ3PKud_-_vzG_Q/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwkEV_d9SupsbVRvubtM-KJMQdhAxDBxFDVv5u-dgJ_IQ4h5EvgVnDFLI6jMmsdRA1c1A/exec";
 
 
 let currentUser = null;
@@ -521,13 +530,23 @@ async function setupLoggedInUser(user){
 
 document.getElementById("googleLoginBtn").onclick = async ()=>{
   try{
-    const result = await auth.signInWithPopup(provider);
-    await setupLoggedInUser(result.user);
+    /*
+      スマホではポップアップログインが不安定になることがあるため、
+      リダイレクト方式でGoogleログインします。
+      ログイン後にこのページへ戻り、onAuthStateChanged側でユーザー情報を読み込みます。
+    */
+    await auth.signInWithRedirect(provider);
   }catch(e){
     console.error(e);
     alert(e.message);
   }
 };
+
+// リダイレクトログイン後のエラー確認用。通常のユーザー読み込みはonAuthStateChangedで行います。
+auth.getRedirectResult().catch(e=>{
+  console.error(e);
+  alert(e.message);
+});
 
 /* ================= Sale Open / Close Control =================
   管理者が購入受付を開始するまで、購入を確定できないようにします。
@@ -643,7 +662,11 @@ auth.onAuthStateChanged(async user=>{
       document.getElementById("adminPanel").classList.add("hidden");
       document.getElementById("modeSwitchBtn").classList.add("hidden");
 
-      loadStores();
+      // 未ログイン時は店舗・商品を表示しない。
+      // Googleログイン後だけ店舗一覧を読み込む。
+      cart = [];
+      updateCartButton();
+      renderLoggedOutStoreMessage();
     }
   }catch(e){
     console.error(e);
@@ -733,9 +756,33 @@ document.getElementById("createStoreBtn").onclick = async ()=>{
   loadStores();
 };
 
+function renderLoggedOutStoreMessage(){
+  const storesGrid = document.getElementById("storesGrid");
+  if(!storesGrid) return;
+
+  storesGrid.innerHTML = `
+    <div class="card" style="grid-column:1/-1;text-align:center;">
+      <h3>ログインしてください</h3>
+      <p class="small">
+        店舗一覧と商品は、学校Googleアカウントでログインすると表示されます。
+      </p>
+      <button class="btn btn-primary" onclick="document.getElementById('googleLoginBtn').click()">
+        Googleログイン
+      </button>
+    </div>
+  `;
+}
+
 async function loadStores(){
   const storesGrid = document.getElementById("storesGrid");
   storesGrid.innerHTML = "";
+
+  // 未ログイン状態では店舗一覧を見せない。
+  // 直接URLを開いた直後やログアウト後でも、店舗名・商品情報が表示されないようにする。
+  if(!currentUser){
+    renderLoggedOutStoreMessage();
+    return;
+  }
 
   const snap = await db.collection("stores").get();
 
@@ -922,6 +969,11 @@ async function submitProduct(){
 }
 
 async function openStore(storeId){
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
   lastOpenStoreId = storeId;
 
   const modal = document.getElementById("modal");
@@ -998,6 +1050,11 @@ async function openStore(storeId){
 }
 
 async function addToCart(product){
+  if(!currentUser){
+    alert("ログインしてください");
+    return;
+  }
+
   const ref = db.collection("stores")
     .doc(product.storeId)
     .collection("products")
