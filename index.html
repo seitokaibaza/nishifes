@@ -128,7 +128,7 @@ const provider = new firebase.auth.GoogleAuthProvider();
   Apps ScriptのWebアプリURL。
   GASを新規デプロイしてURLが変わった場合はここだけ差し替える。
 */
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzm-sbyd4PCeXSWm95DhzfvBJ2a7120H9GMFXwrCA1yt3BdFQmGn9WF9Ku9kvDsWX9Wow/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwkEV_d9SupsbVRvubtM-KJMQdhAxDBxFDVv5u-dgJ_IQ4h5EvgVnDFLI6jMmsdRA1c1A/exec";
 
 
 let currentUser = null;
@@ -1322,9 +1322,31 @@ async function performCheckout(){
         controller.abort();
       }, 6000);
 
+      const gasPayload = {
+        orderId: orderData.orderId,
+        buyer: orderData.buyer,
+        buyerEmail: orderData.buyerEmail,
+        buyerUid: orderData.buyerUid,
+
+        // 購入者情報は、商品明細とは別の専用フィールド名で送る。
+        // これにより、スプレッドシートの「学年」列などに商品情報が入るズレを防ぐ。
+        buyerGrade: orderData.buyerGrade,
+        buyerClass: orderData.buyerClass,
+        buyerNumber: orderData.buyerNumber,
+        buyerCode: orderData.buyerCode,
+        buyerName: orderData.buyerName,
+
+        // 商品情報は details にだけ入れる。
+        // GAS側では details を商品明細として読み取る。
+        details: orderData.items,
+        qty: orderData.qty,
+        total: orderData.total,
+        createdAtText: new Date().toISOString()
+      };
+
       const res = await fetch(GAS_URL,{
         method:"POST",
-        body:JSON.stringify(orderData),
+        body:JSON.stringify(gasPayload),
         signal:controller.signal
       });
 
