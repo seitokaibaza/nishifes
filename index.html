@@ -123,12 +123,15 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const provider = new firebase.auth.GoogleAuthProvider();
+provider.setCustomParameters({
+  prompt: "select_account"
+});
 
 /* ================= Auth Persistence =================
    スマホではログイン状態が一時的に切れたように見えることがあるため、
    ログイン状態をブラウザ内に保持する設定にします。
 */
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+const authPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
 .catch(e=>{
   console.error("ログイン保持設定に失敗", e);
 });
@@ -531,10 +534,11 @@ async function setupLoggedInUser(user){
 document.getElementById("googleLoginBtn").onclick = async ()=>{
   try{
     /*
-      スマホではポップアップログインが不安定になることがあるため、
-      リダイレクト方式でGoogleログインします。
-      ログイン後にこのページへ戻り、onAuthStateChanged側でユーザー情報を読み込みます。
+      スマホ・Chromeでログイン状態が不安定にならないよう、
+      先にログイン保持設定の完了を待ってからリダイレクトログインします。
+      ログイン後のユーザー読み込みは onAuthStateChanged に一本化しています。
     */
+    await authPersistenceReady;
     await auth.signInWithRedirect(provider);
   }catch(e){
     console.error(e);
@@ -542,10 +546,12 @@ document.getElementById("googleLoginBtn").onclick = async ()=>{
   }
 };
 
-// リダイレクトログイン後のエラー確認用。通常のユーザー読み込みはonAuthStateChangedで行います。
+// リダイレクトログイン後のエラー確認用。
+// 通常のユーザー読み込みは onAuthStateChanged に一本化し、
+// ここでは setupLoggedInUser() を呼ばない。二重処理防止のため。
 auth.getRedirectResult().catch(e=>{
   console.error(e);
-  alert(e.message);
+  alert("ログイン処理でエラーが発生しました: " + e.message);
 });
 
 /* ================= Sale Open / Close Control =================
@@ -646,29 +652,50 @@ async function canCheckoutNow(){
   return true;
 }
 
+let authSetupPromise = null;
+
+async function handleLoggedOutState(){
+  currentUser = null;
+  currentRole = null;
+  activeRole = "purchaser";
+  currentProfile = null;
+
+  document.getElementById("userLabel").innerText = "未ログイン";
+  document.getElementById("roleLabel").innerText = "role: -";
+  document.getElementById("sellerPanel").classList.add("hidden");
+  document.getElementById("adminPanel").classList.add("hidden");
+  document.getElementById("modeSwitchBtn").classList.add("hidden");
+
+  // 未ログイン時は店舗・商品を表示しない。
+  // Googleログイン後だけ店舗一覧を読み込む。
+  cart = [];
+  updateCartButton();
+  renderLoggedOutStoreMessage();
+}
+
 auth.onAuthStateChanged(async user=>{
   try{
+    await authPersistenceReady;
+
     if(user){
-      await setupLoggedInUser(user);
+      /*
+        Chromeやスマホでは認証状態の通知が複数回走ることがあるため、
+        ユーザー設定処理を同時に二重実行しないようにする。
+      */
+      if(authSetupPromise){
+        await authSetupPromise;
+        return;
+      }
+
+      authSetupPromise = setupLoggedInUser(user);
+      await authSetupPromise;
+      authSetupPromise = null;
+
     }else{
-      currentUser = null;
-      currentRole = null;
-      activeRole = "purchaser";
-      currentProfile = null;
-
-      document.getElementById("userLabel").innerText = "未ログイン";
-      document.getElementById("roleLabel").innerText = "role: -";
-      document.getElementById("sellerPanel").classList.add("hidden");
-      document.getElementById("adminPanel").classList.add("hidden");
-      document.getElementById("modeSwitchBtn").classList.add("hidden");
-
-      // 未ログイン時は店舗・商品を表示しない。
-      // Googleログイン後だけ店舗一覧を読み込む。
-      cart = [];
-      updateCartButton();
-      renderLoggedOutStoreMessage();
+      await handleLoggedOutState();
     }
   }catch(e){
+    authSetupPromise = null;
     console.error(e);
     alert(e.message);
   }
